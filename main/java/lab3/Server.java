@@ -1,8 +1,6 @@
 package lab3;
 
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
@@ -48,44 +46,33 @@ public class Server {
     public void run() throws IOException {
         System.out.println("Server running");
 
-        Thread newClientThread = null;
-        //while (running) {
-            try {
+        try {
+            while(running) {
                 Socket client = socket.accept();
-                System.out.println("Accepted client");
-
-                newClientThread = new Thread(new ClientHandler(this, client));
-                clientThreads.add(newClientThread);
-                System.out.println("Starting client thread");
-                newClientThread.start();
-
-            } catch (IOException e) {
-                System.out.println("Failed to accept client");
-                e.printStackTrace();
+                System.out.println("Client connected");
+                ClientHandler clientHandler = new ClientHandler(this, client);
+                Thread clientThread = new Thread(clientHandler);
+                clientThreads.add(clientThread);
+                clientThread.start();
             }
-        //}
-
-        quit();
-    }
-
-    private void quit() throws IOException {
-        for (Thread thread : clientThreads) {
-            thread.interrupt();
         }
-        socket.close();
+        catch (IOException e) {
+            System.out.println("Server failed");
+            e.printStackTrace();
+        }
+        finally {
+            socket.close();
+        }
     }
 
-    public void addMessage(Message message) {
-        receivedMessages.add(message);
-        System.out.println("Received message: " + message);
-    }
+
 
 
     private class ClientHandler implements Runnable {
         private Server server;
         private Socket client;
-        private ObjectInputStream in;
-        private ObjectOutputStream out;
+        private BufferedReader in;
+        private PrintWriter out;
         private ArrayList<Message> messagesBuffer;
 
         public ClientHandler(Server _server, Socket _client) throws IOException {
@@ -93,91 +80,38 @@ public class Server {
             server = _server;
             client = _client;
 
-            out = new ObjectOutputStream(client.getOutputStream());
-            in = new ObjectInputStream(client.getInputStream());
+            out = new PrintWriter(client.getOutputStream(), true);
+            in = new BufferedReader(new InputStreamReader(client.getInputStream()));
+            System.out.println("Streams connected to client");
 
             messagesBuffer = new ArrayList<>();
 
         }
 
-        private void stop() throws IOException{
-            in.close();
-            out.close();
-            //client.close();
-            System.out.println("ClientHandler stopped");
-        }
-
-        private void transfer() throws IOException, ClassNotFoundException {
-//            out.writeObject(TRANSFER_READY);
-//            System.out.println("ClientHandler transfer ready");
-//            int messageCount = in.readInt();
-//            System.out.println("ClientHandler received message count: " + messageCount);
-//            for (int i = 0; i < messageCount; i++) {
-//                Message message = (Message) in.readObject();
-//                messagesBuffer.add(message);
-//            }
-//            System.out.println("ClientHandler received messages");
-//            for (Message message : messagesBuffer) {
-//                server.addMessage(message);
-//            }
-//            out.writeObject(TRANSFER_FINISHED);
-//
-            try {
-                out.writeObject(TRANSFER_READY);
-                try {
-                    int messageCount = (int) in.readObject();
-                    try {
-                        out.writeObject(TRANSFER_READY);
-                        try {
-                            for (int i = 0; i < messageCount; i++) {
-                                Message message = (Message) in.readObject();
-                                messagesBuffer.add(message);
-                            }
-                            for (Message message : messagesBuffer) {
-                                server.addMessage(message);
-                            }
-                            try {
-                                out.writeObject(TRANSFER_FINISHED);
-                            }
-                            catch (IOException e) {
-                                System.out.println("Server failed to send finished message");
-                            }
-                        } catch (IOException e) {
-                            System.out.println("Server failed to read message");
-                        }
-                    } catch (IOException e) {
-                        System.out.println("Server not ready to receive messages");
-                    }
-                }
-                catch (IOException e) {
-                    System.out.println("Server dint get count");
-                }
-            }
-            catch (IOException e) {
-                System.out.println("Server not ready");
-            }
-
-        }
 
         @Override
         public void run() {
-            System.out.println("ClientHandler running");
-            //while (true) {
-                try {
-                    transfer();
-                    System.out.println("ClientHandler transfer complete");
-                } catch (IOException | ClassNotFoundException e) {
-                    System.out.println("Failed to read message from client");
-                   // break;
-                }
-            //}
-
             try {
-                stop();
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
+                System.out.println("ClientHandler running");
+                String input = in.readLine();
+                System.out.println("Received message: " + input);
+                out.println("Server received message: " + input);
+                System.out.println("Sent response");
+                input = in.readLine();
+                System.out.println("Received message: " + input);
+                out.println("Server received message: " + input);
+                System.out.println("Sent response");
 
+                System.out.println("Closing client connection");
+                in.close();
+                out.close();
+                client.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+                throw new RuntimeException(e);
+
+            }
+            System.out.println("ClientHandler finished");
         }
     }
 }
