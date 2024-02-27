@@ -71,8 +71,8 @@ public class Server {
     private class ClientHandler implements Runnable {
         private Server server;
         private Socket client;
-        private BufferedReader in;
-        private PrintWriter out;
+        private ObjectInputStream in;
+        private ObjectOutputStream out;
         private ArrayList<Message> messagesBuffer;
 
         public ClientHandler(Server _server, Socket _client) throws IOException {
@@ -80,8 +80,8 @@ public class Server {
             server = _server;
             client = _client;
 
-            out = new PrintWriter(client.getOutputStream(), true);
-            in = new BufferedReader(new InputStreamReader(client.getInputStream()));
+            out = new ObjectOutputStream(client.getOutputStream());
+            in = new ObjectInputStream(client.getInputStream());
             System.out.println("Streams connected to client");
 
             messagesBuffer = new ArrayList<>();
@@ -89,19 +89,31 @@ public class Server {
         }
 
 
+        private void protocol() throws IOException, ClassNotFoundException {
+            out.writeObject(SERVER_READY);
+            out.flush();
+            Integer messgesToRead = (Integer) in.readObject();
+            out.writeObject(TRANSFER_READY);
+            out.flush();
+            for (int i = 0; i < messgesToRead; i++) {
+                Message message = (Message) in.readObject();
+                messagesBuffer.add(message);
+            }
+            out.writeObject(TRANSFER_FINISHED);
+            out.flush();
+            System.out.println("Messages received");
+            for (Message message : messagesBuffer) {
+                System.out.println(message);
+            }
+        }
+
         @Override
         public void run() {
             try {
-                boolean clientOnline = true;
-                while(clientOnline) {
-                    String message = in.readLine();
-                    if (message == null || message.equals("quit")) {
-                        System.out.println("Client disconnected");
-                        clientOnline = false;
-                    } else {
-                        System.out.println("Received message: " + message);
-                        out.println("Received message: " + message);
-                    }
+                try {
+                    protocol();
+                } catch (ClassNotFoundException e) {
+                    e.printStackTrace();
                 }
 
                 System.out.println("Closing client connection");
