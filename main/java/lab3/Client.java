@@ -12,17 +12,28 @@ public class Client {
 
     public static void main(String[] args) {
         try {
-            Client client = new Client("0.0.0.0", 8080);
+            Client client1 = new Client("0.0.0.0", 8080);
 
-            Scanner scanner = new Scanner(System.in);
-            String message = "";
-            while (message != null && !message.equals("quit")) {
-                System.out.println("Enter message to send to server");
-                message = scanner.nextLine();
-                System.out.println("Server responded: " + client.sendMessage(message));
-            }
+            Client client3 = new Client("0.0.0.0", 8080);
 
-            client.quit();
+            System.out.println("Client1 sent: " + client1.sendMessage("c1: Helo"));
+
+            System.out.println("Client3 sent: " + client3.sendMessage("c3: Helllo"));
+            System.out.println("Client1 sent: " + client1.sendMessage("c1: World"));
+            Client client2 = new Client("0.0.0.0", 8080);
+            System.out.println("Client2 sent: " + client2.sendMessage("c2: Dev"));
+            client2.sendMessage("quit");
+            client2.quit();
+
+            System.out.println("Client3 sent: " + client3.sendMessage("c3: my"));
+            System.out.println("Client3 sent: " + client3.sendMessage("c3: Server"));
+            client3.sendMessage("quit");
+            client3.quit();
+
+            System.out.println("Client1 sent: " + client1.sendMessage("c1: Friend"));
+            client1.sendMessage("quit");
+            client1.quit();
+
         } catch (IOException e) {
             e.printStackTrace();
         }
