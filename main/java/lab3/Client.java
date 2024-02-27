@@ -19,7 +19,15 @@ public class Client {
             messages[1] = new Message("Beta");
             messages[2] = new Message("Gamma");
 
+            Message[] messages2 = new Message[2];
+            messages2[0] = new Message("Delta");
+            messages2[1] = new Message("Epsilon");
+
             client1.transfer(messages);
+
+            Client client2 = new Client("0.0.0.0", 8080);
+            client2.transfer(messages2);
+            client2.quit();
 
             client1.quit();
 

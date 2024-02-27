@@ -4,11 +4,14 @@ import java.io.Serializable;
 
 public class Message
         implements Serializable {
-    private static final int id = 0;
+    private static int id = 0;
+    private int messageId;
     private String content;
 
     public Message(String content) {
         this.content = content;
+        Message.id++;
+        messageId = Message.id;
     }
 
     public void setContent(String content) {
@@ -20,10 +23,10 @@ public class Message
     }
 
     public int getId() {
-        return id;
+        return messageId;
     }
 
     public String toString() {
-        return "Message-" + id + ": " + content;
+        return "Message-" + messageId + ": " + content;
     }
 }
