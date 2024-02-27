@@ -2,6 +2,7 @@ package lab3;
 
 import java.io.*;
 import java.net.Socket;
+import java.util.Scanner;
 
 
 public class Client {
@@ -12,9 +13,15 @@ public class Client {
     public static void main(String[] args) {
         try {
             Client client = new Client("0.0.0.0", 8080);
-            System.out.println(client.sendMessage("Hello Server!"));
-            System.out.println(client.sendMessage(", are you there?"));
-            System.out.println("Client finished - shutting down");
+
+            Scanner scanner = new Scanner(System.in);
+            String message = "";
+            while (message != null && !message.equals("quit")) {
+                System.out.println("Enter message to send to server");
+                message = scanner.nextLine();
+                System.out.println("Server responded: " + client.sendMessage(message));
+            }
+
             client.quit();
         } catch (IOException e) {
             e.printStackTrace();
@@ -24,7 +31,7 @@ public class Client {
 
     public Client(String ip, int port) throws IOException {
         System.out.println("Connecting to server on " + ip + ":" + port);
-        this.connectedSocket = new Socket(ip, port);
+        connectedSocket = new Socket(ip, port);
         System.out.println("Connected to server on " + ip + ":" + port);
         out = new PrintWriter(connectedSocket.getOutputStream(), true);
         in = new BufferedReader(new InputStreamReader(connectedSocket.getInputStream()));

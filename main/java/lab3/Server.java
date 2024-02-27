@@ -92,17 +92,20 @@ public class Server {
         @Override
         public void run() {
             try {
-                System.out.println("ClientHandler running");
-                String input = in.readLine();
-                System.out.println("Received message: " + input);
-                out.println("Server received message: " + input);
-                System.out.println("Sent response");
-                input = in.readLine();
-                System.out.println("Received message: " + input);
-                out.println("Server received message: " + input);
-                System.out.println("Sent response");
+                boolean clientOnline = true;
+                while(clientOnline) {
+                    String message = in.readLine();
+                    if (message == null || message.equals("quit")) {
+                        System.out.println("Client disconnected");
+                        clientOnline = false;
+                    } else {
+                        System.out.println("Received message: " + message);
+                        out.println("Received message: " + message);
+                    }
+                }
 
                 System.out.println("Closing client connection");
+
                 in.close();
                 out.close();
                 client.close();
