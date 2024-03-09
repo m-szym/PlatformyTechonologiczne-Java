@@ -1,4 +1,6 @@
-package lab4;
+// source: https://www.javaguides.net/2019/11/hibernate-h2-database-example-tutorial.html
+
+        package lab4;
 
 import jakarta.persistence.*;
 
