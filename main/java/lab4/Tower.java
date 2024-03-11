@@ -16,7 +16,7 @@ public class Tower {
     @Column(name = "towerHeight")
     private int height;
 
-    @OneToMany
+    @OneToMany(mappedBy = "tower", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     private List<Mage> mages;
 
 

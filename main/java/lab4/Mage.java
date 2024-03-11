@@ -13,7 +13,7 @@ public class Mage {
     private int level;
 
     @ManyToOne
-    @JoinColumn(name = "towerName")
+    @JoinColumn(name = "tower")
     private Tower tower;
 
     public Mage() {
