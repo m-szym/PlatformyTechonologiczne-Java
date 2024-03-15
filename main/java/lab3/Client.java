@@ -1,11 +1,15 @@
 package lab3;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.io.*;
 import java.net.Socket;
 import java.util.Scanner;
 
 
 public class Client {
+    private static final Logger clientLogger = LogManager.getLogger(Client.class);
     private Socket connectedSocket;
     private ObjectInputStream in;
     private ObjectOutputStream out;
@@ -22,48 +26,56 @@ public class Client {
             Message[] messages2 = new Message[2];
             messages2[0] = new Message("Delta");
             messages2[1] = new Message("Epsilon");
-
-            client1.transfer(messages);
-
             Client client2 = new Client("0.0.0.0", 8080);
-            client2.transfer(messages2);
-            client2.quit();
 
+            try {
+                client1.transfer(messages);
+                client2.transfer(messages2);
+            } catch(IOException | ClassNotFoundException e) {
+                clientLogger.error("Transmission failed", e);
+                throw new RuntimeException(e);
+            }
+
+            client2.quit();
             client1.quit();
 
         } catch (IOException e) {
-            e.printStackTrace();
-        } catch (ClassNotFoundException e) {
+            clientLogger.error("Client failed", e);
             throw new RuntimeException(e);
         }
         System.out.println("Client finished");
     }
 
     public Client(String ip, int port) throws IOException {
-        System.out.println("Connecting to server on " + ip + ":" + port);
+        clientLogger.info("Client started");
         connectedSocket = new Socket(ip, port);
-        System.out.println("Connected to server on " + ip + ":" + port);
+        clientLogger.debug("Client connected to server on ip " + connectedSocket.getInetAddress() + " and port " + connectedSocket.getPort());
         out = new ObjectOutputStream(connectedSocket.getOutputStream());
         in = new ObjectInputStream(connectedSocket.getInputStream());
-        System.out.println("Streams connected to server");
+        clientLogger.debug("Client streams created");
+        clientLogger.info("Client connected to server");
     }
 
     public void transfer(Message[] messages) throws IOException, ClassNotFoundException {
+        clientLogger.debug("Attempting to transfer " + messages.length + " messages");
         String serverResponse = (String) in.readObject();
         if (serverResponse.equals(Server.SERVER_READY)) {
+            clientLogger.debug("Server accepted connection and is ready to receive messages");
             out.writeObject(messages.length);
             out.flush();
             serverResponse = (String) in.readObject();
             if (serverResponse.equals(Server.TRANSFER_READY)) {
+                clientLogger.debug("Server waiting to receive messages. Sending " + messages.length + " messages.");
                 for (Message message : messages) {
                     out.writeObject(message);
                     out.flush();
                 }
                 serverResponse = (String) in.readObject();
                 if (serverResponse.equals(Server.TRANSFER_FINISHED)) {
-                    System.out.println("Transfer finished");
+                    clientLogger.debug("Server confirmed receiving transmission");
+                    clientLogger.info("Transmission complete. Messages sent: " + messages.length);
                 } else {
-                    System.out.println("Transfer failed");
+                    clientLogger.error("Server failed to confirm fining transmission");
                 }
             }
         }
