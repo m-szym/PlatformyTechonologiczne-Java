@@ -1,12 +1,12 @@
 package lab3;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
 import java.io.*;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.Scanner;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class Client {
     private static final Logger clientLogger = LogManager.getLogger(Client.class);
@@ -15,39 +15,98 @@ public class Client {
     private ObjectOutputStream out;
 
     public static void main(String[] args) {
+        //long_test();
+        // short_test();
+        multi_test();
+    }
+
+    private static void long_test() {
         try {
-            Client client1 = new Client("0.0.0.0", 8080);
-
-            Message[] messages = new Message[3];
-            messages[0] = new Message("Alpha");
-            messages[1] = new Message("Beta");
-            messages[2] = new Message("Gamma");
-
-            Message[] messages2 = new Message[2];
-            messages2[0] = new Message("Delta");
-            messages2[1] = new Message("Epsilon");
-            Client client2 = new Client("0.0.0.0", 8080);
-
-            try {
-                client1.transfer(messages);
-                client2.transfer(messages2);
-            } catch(IOException | ClassNotFoundException e) {
-                clientLogger.error("Transmission failed", e);
-                throw new RuntimeException(e);
-            }
-
-            client2.quit();
-            client1.quit();
-
+            Client client = new Client();
+            client.connectToServer("0.0.0.0", 8080);
+            client.runCLient();
+            client.closeConnection();
         } catch (IOException e) {
             clientLogger.error("Client failed", e);
             throw new RuntimeException(e);
         }
-        System.out.println("Client finished");
     }
 
-    public Client(String ip, int port) throws IOException {
+    private static void short_test() {
+        try {
+            Client client = new Client();
+            client.connectToServer("0.0.0.0", 8080);
+            ArrayList<Message> messages = new ArrayList<>();
+            messages.add(new Message("Hello World"));
+            messages.add(new Message("Goodbye World"));
+
+            client.transfer(messages);
+
+            client.closeConnection();
+        } catch (IOException | ClassNotFoundException e) {
+            clientLogger.error("Client failed", e);
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static void multi_test() {
+        try {
+            Client greekClient = new Client();
+            Client latinClient = new Client();
+            ArrayList<Message> messages = new ArrayList<>();
+
+
+            greekClient.connectToServer("0.0.0.0", 8080);
+
+            messages.add(new Message("Alpha"));
+            messages.add(new Message("Beta"));
+
+            greekClient.transfer(messages);
+            messages.clear();
+
+            latinClient.connectToServer("0.0.0.0", 8080);
+
+            messages.add(new Message("A"));
+            messages.add(new Message("B"));
+            messages.add(new Message("C"));
+            latinClient.transfer(messages);
+            messages.clear();
+
+            latinClient.closeConnection();
+
+            messages.add(new Message("Gamma"));
+            messages.add(new Message("Delta"));
+            greekClient.transfer(messages);
+
+            greekClient.closeConnection();
+        } catch (IOException | ClassNotFoundException e) {
+            clientLogger.error("Client failed", e);
+            throw new RuntimeException(e);
+        }
+    }
+
+//    public Client(String ip, int port) throws IOException {
+//        clientLogger.info("Client started");
+//        connectedSocket = new Socket(ip, port);
+//        clientLogger.debug("Client connected to server on ip " + connectedSocket.getInetAddress() + " and port " + connectedSocket.getPort());
+//        out = new ObjectOutputStream(connectedSocket.getOutputStream());
+//        in = new ObjectInputStream(connectedSocket.getInputStream());
+//        clientLogger.debug("Client streams created");
+//        clientLogger.info("Client connected to server");
+//    }
+
+    public Client() {
         clientLogger.info("Client started");
+        connectedSocket = null;
+        out = null;
+        in = null;
+    }
+
+    public void connectToServer(String ip, int port) throws IOException {
+        if (connectedSocket != null) {
+            closeConnection();
+        }
+
         connectedSocket = new Socket(ip, port);
         clientLogger.debug("Client connected to server on ip " + connectedSocket.getInetAddress() + " and port " + connectedSocket.getPort());
         out = new ObjectOutputStream(connectedSocket.getOutputStream());
@@ -56,16 +115,16 @@ public class Client {
         clientLogger.info("Client connected to server");
     }
 
-    public void transfer(Message[] messages) throws IOException, ClassNotFoundException {
-        clientLogger.debug("Attempting to transfer " + messages.length + " messages");
+    public void transfer(ArrayList<Message> messages) throws IOException, ClassNotFoundException {
+        clientLogger.debug("Attempting to transfer " + messages.size() + " messages");
         String serverResponse = (String) in.readObject();
         if (serverResponse.equals(Server.SERVER_READY)) {
             clientLogger.debug("Server accepted connection and is ready to receive messages");
-            out.writeObject(messages.length);
+            out.writeObject(messages.size());
             out.flush();
             serverResponse = (String) in.readObject();
             if (serverResponse.equals(Server.TRANSFER_READY)) {
-                clientLogger.debug("Server waiting to receive messages. Sending " + messages.length + " messages.");
+                clientLogger.debug("Server waiting to receive messages. Sending " + messages.size() + " messages.");
                 for (Message message : messages) {
                     out.writeObject(message);
                     out.flush();
@@ -73,23 +132,70 @@ public class Client {
                 serverResponse = (String) in.readObject();
                 if (serverResponse.equals(Server.TRANSFER_FINISHED)) {
                     clientLogger.debug("Server confirmed receiving transmission");
-                    clientLogger.info("Transmission complete. Messages sent: " + messages.length);
+                    clientLogger.info("Transmission complete. Messages sent: " + messages.size());
                 } else {
                     clientLogger.error("Server failed to confirm fining transmission");
                 }
             }
         }
+        clientLogger.debug("Transmission done");
     }
 
-    public String sendMessage(String message) throws IOException {
-        //out.println(message);
-        return in.readLine();
+    private void closeConnection() throws IOException {
+        out.writeObject(0);
+//        in.close();
+//        out.close();
+//        connectedSocket.close();
     }
 
-    private void quit() throws IOException {
-        in.close();
-        out.close();
-        connectedSocket.close();
-    }
+    public void runCLient() throws IOException {
+        Scanner scanner = new Scanner(System.in);
+        boolean running = true;
+        ArrayList<Message> messages = new ArrayList<>();
 
+        while (running) {
+            System.out.print("\nEnter command or message: ");
+            if (scanner.hasNextLine()) {
+
+                String message = scanner.nextLine();
+
+                switch (message) {
+                    case "exit" -> {
+                        running = false;
+
+                    }
+                    case "ping" -> {
+                        try {
+                            Message ping = new Message("ping");
+                            ArrayList<Message> pingList = new ArrayList<>();
+                            pingList.add(ping);
+                            transfer(pingList);
+                        } catch (IOException | ClassNotFoundException e) {
+                            clientLogger.error("Failed to send message", e);
+                        }
+                    }
+                    case "test" -> {
+                        try {
+                            ArrayList<Message> testMessages = new ArrayList<>();
+                            testMessages.add(new Message("Hello World"));
+                            testMessages.add(new Message("Goodbye World"));
+                            testMessages.add(new Message("Hello Again"));
+                            transfer(testMessages);
+                        } catch (IOException | ClassNotFoundException e) {
+                            clientLogger.error("Failed to send message", e);
+                        }
+                    }
+                    case "send" -> {
+                        try {
+                            transfer(messages);
+                            messages.clear();
+                        } catch (IOException | ClassNotFoundException e) {
+                            clientLogger.error("Failed to send message", e);
+                        }
+                    }
+                    default -> messages.add(new Message(message));
+                }
+            }
+        }
+    }
 }
