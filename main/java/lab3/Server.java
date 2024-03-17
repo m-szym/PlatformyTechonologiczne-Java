@@ -4,6 +4,7 @@ import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Scanner;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -40,15 +41,22 @@ public class Server {
 
     public void runServer() throws IOException {
         serverLogger.debug("Server started");
+        Scanner cli = new Scanner(System.in);
 
         try {
             while(running) {
                 Socket client = socket.accept();
                 serverLogger.debug("Client connected");
-                ClientHandler clientHandler = new ClientHandler(this, client);
-                Thread clientThread = new Thread(clientHandler);
-                clientThreads.add(clientThread);
-                clientThread.start();
+                ClientHandler clientHandler = new ClientHandler(client);
+                try {
+                    clientHandler.connectToClient();
+                    Thread clientThread = new Thread(clientHandler);
+                    clientThreads.add(clientThread);
+                    clientThread.start();
+                } catch (IOException e) {
+                    serverLogger.error("ClientHandler failed to connect to client", e);
+                    throw new RuntimeException(e);
+                }
             }
         }
         catch (IOException e) {
@@ -63,23 +71,30 @@ public class Server {
 
 
     private class ClientHandler implements Runnable {
-        private Server server;
-        private Socket client;
+        private final Socket client;
         private ObjectInputStream in;
         private ObjectOutputStream out;
-        private ArrayList<Message> messagesBuffer;
+        private final ArrayList<Message> messagesBuffer;
 
-        public ClientHandler(Server _server, Socket _client) throws IOException {
+        public ClientHandler(Socket clientSocket) {
             serverLogger.info("New ClientHandler created");
-            server = _server;
-            client = _client;
+            client = clientSocket;
+            in = null;
+            out = null;
+            messagesBuffer = new ArrayList<>();
 
+        }
+
+        public void connectToClient() throws IOException {
             out = new ObjectOutputStream(client.getOutputStream());
             in = new ObjectInputStream(client.getInputStream());
             serverLogger.debug("Handler connected to client");
+        }
 
-            messagesBuffer = new ArrayList<>();
-
+        public void closeConnection() throws IOException {
+            in.close();
+            out.close();
+            client.close();
         }
 
 
@@ -99,27 +114,53 @@ public class Server {
             serverLogger.debug("ClientHandler finished receiving " + messagesBuffer.size() + " messages");
             out.flush();
             serverLogger.info("Transmission complete. Messages received: " + messagesBuffer.size());
-//            for (Message message : messagesBuffer) {
-//                System.out.println(message);
-//            }
+
         }
 
         @Override
         public void run() {
-            try {
-                protocol();
+            boolean handlerRunning = true;
+            while (handlerRunning) {
+                try {
+                    //protocol();
+                    out.writeObject(SERVER_READY);
+                    serverLogger.debug("ClientHandler ready to start transmission");
+                    out.flush();
 
-                serverLogger.debug("ClientHandler finished - closing connection");
+                    Integer messagesToRead = (Integer) in.readObject();
+                    if (messagesToRead > 0) {
+                        out.writeObject(TRANSFER_READY);
+                        serverLogger.debug("ClientHandler ready to receive " + messagesToRead + " messages");
+                        out.flush();
+                        for (int i = 0; i < messagesToRead; i++) {
+                            Message message = (Message) in.readObject();
+                            messagesBuffer.add(message);
+                        }
+                        out.writeObject(TRANSFER_FINISHED);
+                        serverLogger.debug("ClientHandler finished receiving " + messagesToRead + " messages");
+                        out.flush();
+                        serverLogger.info("Transmission complete. Messages received: " + messagesBuffer.size());
+                    } else {
+                        out.writeObject(TRANSFER_FINISHED);
+                        serverLogger.debug("ClientHandler received total of " + messagesBuffer.size() + " messages");
+                        out.flush();
+                        serverLogger.info("Transmission complete. Disconnecting client.");
+                        handlerRunning = false;
+                    }
 
-                in.close();
-                out.close();
-                client.close();
-            } catch (IOException | ClassNotFoundException e) {
-                serverLogger.error("ClientHandler failed: ", e);
-                throw new RuntimeException(e);
+                } catch (IOException | ClassNotFoundException e) {
+                    serverLogger.error("ClientHandler failed: ", e);
+                    throw new RuntimeException(e);
 
+                }
             }
             serverLogger.info("ClientHandler finished");
+            try {
+                closeConnection();
+            } catch (IOException e) {
+                serverLogger.error("ClientHandler failed to close connection", e);
+                throw new RuntimeException(e);
+            }
         }
     }
 }
